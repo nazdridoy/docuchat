@@ -33,6 +33,36 @@ export const RAG_API_KEY = process.env.RAG_API_KEY || process.env.OPENAI_API_KEY
 
 // Embedding configuration
 export const EMBEDDING_DIMENSIONS = process.env.EMBEDDING_DIMENSIONS;
+export let CHUNK_SIZE = process.env.CHUNK_SIZE
+  ? parseInt(process.env.CHUNK_SIZE)
+  : null;
+export let CHUNK_OVERLAP = process.env.CHUNK_OVERLAP
+  ? parseInt(process.env.CHUNK_OVERLAP)
+  : null;
+
+export function setChunkingDefaults(dimensions) {
+  if (CHUNK_SIZE === null) {
+    if (dimensions >= 1024) {
+      CHUNK_SIZE = 1000;
+    } else if (dimensions >= 768) {
+      CHUNK_SIZE = 768;
+    } else if (dimensions >= 512) {
+      CHUNK_SIZE = 512;
+    } else {
+      CHUNK_SIZE = 384;
+    }
+    console.log(
+      `CHUNK_SIZE not set, dynamically setting to ${CHUNK_SIZE} based on embedding dimensions (${dimensions}).`
+    );
+  }
+
+  if (CHUNK_OVERLAP === null) {
+    CHUNK_OVERLAP = Math.round(CHUNK_SIZE * 0.2);
+    console.log(
+      `CHUNK_OVERLAP not set, dynamically setting to ${CHUNK_OVERLAP}.`
+    );
+  }
+}
 
 // Document upload configuration
 export const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB default

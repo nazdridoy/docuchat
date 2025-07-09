@@ -4,15 +4,15 @@ import crypto from 'crypto';
 import pdf from 'pdf-parse/lib/pdf-parse.js';
 import { generateEmbeddingsBatch } from '../embeddings/index.js';
 import {
+  CHUNK_SIZE,
+  CHUNK_OVERLAP,
+} from '../config.js';
+import {
   insertDocument,
   insertChunks,
   insertEmbedding,
   deleteDocument
 } from '../db/index.js';
-
-// Custom text splitter configuration
-const CHUNK_SIZE = 1000;
-const CHUNK_OVERLAP = 200;
 
 /**
  * Splits a text into chunks of a specified size with a specified overlap.

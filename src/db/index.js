@@ -4,6 +4,7 @@ import {
   DATABASE_URL,
   EMBEDDING_DIMENSIONS,
   USE_LOCAL_DB,
+  setChunkingDefaults,
 } from '../config.js';
 import { generateEmbedding } from '../embeddings/index.js';
 
@@ -70,6 +71,9 @@ export async function initializeDatabase() {
         throw new Error('Could not determine embedding dimension.');
       }
     }
+
+    // Set chunking parameters based on dimensions if not explicitly configured
+    setChunkingDefaults(dimensions);
 
     // Create vss_embeddings virtual table for vector search
     db.exec(`

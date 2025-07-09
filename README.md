@@ -76,6 +76,13 @@ RAG_API_KEY="your-openai-api-key"
 # RAG_API_KEY="ollama" # Any value works here
 # EMBEDDING_DIMENSIONS=1024
 
+# Document Processing Configuration
+# CHUNK_SIZE=1000
+# CHUNK_OVERLAP=200
+#
+# These values are dynamically determined based on the embedding model's dimensions
+# if not explicitly set. Overriding them may be useful for fine-tuning performance.
+
 # Document Upload Configuration
 MAX_FILE_SIZE=10485760 # 10MB
 UPLOAD_DIRECTORY="./uploads"
@@ -121,6 +128,7 @@ For local development, you can use [Ollama](https://ollama.ai/) to generate embe
     RAG_MODEL="mxbai-embed-large:latest"
     RAG_API_KEY="ollama" # Any non-empty value works
     ```
+    When using a local model, it is recommended to also set `EMBEDDING_DIMENSIONS` to avoid a slight delay on startup while the dimensions are detected.
 
 ## Usage
 
