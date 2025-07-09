@@ -1,0 +1,33 @@
+{
+  "name": "docuchat",
+  "version": "1.0.0",
+  "description": "Chat with your text documents using RAG",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": [
+    "rag",
+    "chat",
+    "documents",
+    "openai",
+    "embeddings",
+    "libsql"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@libsql/client": "^0.5.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2",
+    "langchain": "^0.1.21",
+    "multer": "^1.4.5-lts.1",
+    "openai": "^4.28.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
