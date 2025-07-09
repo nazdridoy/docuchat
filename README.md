@@ -101,7 +101,7 @@ MAX_FILE_SIZE=10485760 # 10MB
 UPLOAD_DIRECTORY="./uploads"
 ```
 
-## CLI Tool: View Database Entries
+## CLI Tool(debug): View Database Entries
 
 A Python script `view_embedding.py` is provided to inspect entries in the SQLite database, including document chunks and their associated embeddings. This is particularly useful for debugging and understanding the stored data.
 
@@ -111,8 +111,9 @@ To use it:
 
 Example:
 ```bash
-python view_embedding.py --db ./data.db --type chunks
-python view_embedding.py --db ./data.db --type embeddings
+python view_embedding.py --database ./data.db --rowid 1
+python view_embedding.py --database ./data.db --rowid 1 --embedding
+
 ```
 
 ## License
