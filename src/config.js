@@ -28,7 +28,7 @@ export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // RAG API configuration (for embeddings)
 export const RAG_BASE_URL = process.env.RAG_BASE_URL || 'https://api.openai.com/v1';
-export const RAG_MODEL = process.env.RAG_MODEL || 'text-embedding-ada-002';
+export const RAG_MODEL = process.env.RAG_MODEL || 'text-embedding-3-small';
 export const RAG_API_KEY = process.env.RAG_API_KEY || process.env.OPENAI_API_KEY;
 
 // Embedding configuration

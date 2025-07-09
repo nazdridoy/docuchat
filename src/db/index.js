@@ -208,9 +208,11 @@ export function searchSimilarEmbeddings(embeddingVector, limit = 20) {
         c.id as chunk_id,
         c.content,
         c.document_id,
-        m.distance as similarity
+        m.distance as similarity,
+        v.embedding
       FROM matches m
       JOIN chunks c ON c.rowid = m.rowid
+      JOIN vss_embeddings v ON v.rowid = m.rowid
     `);
 
     const results = searchStmt.all(embeddingBuffer, limit);
@@ -218,6 +220,7 @@ export function searchSimilarEmbeddings(embeddingVector, limit = 20) {
       .map((row) => ({
         ...row,
         similarity: 1 - row.similarity,
+        embedding: Array.from(new Float32Array(row.embedding.buffer)),
       }))
       .filter((row) => row.similarity >= SIMILARITY_THRESHOLD);
 
