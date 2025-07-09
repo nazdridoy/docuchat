@@ -83,85 +83,14 @@ RAG_API_KEY="your-openai-api-key"
 # These values are dynamically determined based on the embedding model's dimensions
 # if not explicitly set. Overriding them may be useful for fine-tuning performance.
 
+# RAG Configuration
+# SIMILARITY_THRESHOLD=0.5
+# CONTEXT_MAX_LENGTH=4096
+#
+# SIMILARITY_THRESHOLD: Minimum score for a chunk to be included in context. (Default: 0.5)
+# CONTEXT_MAX_LENGTH: Max characters for context sent to the LLM. (Default: 4096)
+
 # Document Upload Configuration
 MAX_FILE_SIZE=10485760 # 10MB
 UPLOAD_DIRECTORY="./uploads"
-```
-
-### Database Options
-
-#### Local SQLite Database
-
-By default, DocuChat uses a local SQLite database for easy setup and development. This is ideal for testing or small-scale use.
-
-```
-DATABASE_URL="file:./data.db"
-USE_LOCAL_DB="true"
-```
-
-#### Serverless Vector Database with Turso
-
-For production or scalable applications, DocuChat supports Turso, a serverless database built on LibSQL. This allows you to handle large-scale vector storage without managing server infrastructure.
-
-```
-DATABASE_URL="libsql://your-database.turso.io"
-DATABASE_TOKEN="your-database-token"
-USE_LOCAL_DB="false"
-```
-
-### Using Ollama for Embeddings
-
-For local development, you can use [Ollama](https://ollama.ai/) to generate embeddings without needing an OpenAI API key:
-
-1.  Install Ollama by following the instructions on the [Ollama website](https://ollama.ai/)
-2.  Pull an embedding model:
-    ```bash
-    ollama pull mxbai-embed-large # Recommended (1024 dimensions)
-    # or
-    ollama pull nomic-embed-text  # Accurate (768 dimensions)
-    # or
-    ollama pull all-minilm    # Small, fast (384 dimensions)
-    ```
-3.  Configure your `.env` file to use Ollama's OpenAI-compatible API. For `RAG_MODEL`, specify the model name and tag:
-    ```
-    RAG_BASE_URL="http://127.0.0.1:11434/v1"
-    RAG_MODEL="mxbai-embed-large:latest"
-    RAG_API_KEY="ollama" # Any non-empty value works
-    ```
-    When using a local model, it is recommended to also set `EMBEDDING_DIMENSIONS` to avoid a slight delay on startup while the dimensions are detected.
-
-## Usage
-
-Once the application is installed and configured, you can start the server:
-
-```bash
-npm start
-```
-
-### API Endpoints
-
-#### Documents
-
--   `POST /api/documents` - Upload a document
--   `GET /api/documents` - List all documents
--   `DELETE /api/documents/:id` - Delete a document
-
-#### Chat
-
--   `POST /api/chat` - Send a message and get a response based on your documents
-
-## Privacy First
-
-Your privacy is a top priority. For full control over your data, you can run DocuChat in a completely self-hosted environment. By using the default local SQLite database and generating embeddings with a local Ollama model, you can ensure that your documents and conversation history never leave your machine. This setup allows you to use the application's full power without relying on third-party services for data processing.
-
-## Contributing
-
-1.  Fork the repository
-2.  Create your feature branch (`git checkout -b feature/amazing-feature`)
-3.  Commit your changes (`git commit -m 'Add some amazing feature'`)
-4.  Push to the branch (`git push origin feature/amazing-feature`)
-5.  Open a Pull Request
-
-## License
-
-This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+``

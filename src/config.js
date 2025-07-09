@@ -64,6 +64,14 @@ export function setChunkingDefaults(dimensions) {
   }
 }
 
+// RAG configuration
+export const SIMILARITY_THRESHOLD = process.env.SIMILARITY_THRESHOLD
+  ? parseFloat(process.env.SIMILARITY_THRESHOLD)
+  : 0.5;
+export const CONTEXT_MAX_LENGTH = process.env.CONTEXT_MAX_LENGTH
+  ? parseInt(process.env.CONTEXT_MAX_LENGTH)
+  : 4096;
+
 // Document upload configuration
 export const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB default
 export const UPLOAD_DIRECTORY = process.env.UPLOAD_DIRECTORY || join(rootDir, 'uploads');

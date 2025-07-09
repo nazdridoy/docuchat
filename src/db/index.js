@@ -5,6 +5,7 @@ import {
   EMBEDDING_DIMENSIONS,
   USE_LOCAL_DB,
   setChunkingDefaults,
+  SIMILARITY_THRESHOLD,
 } from '../config.js';
 import { generateEmbedding } from '../embeddings/index.js';
 
@@ -188,7 +189,7 @@ export function insertEmbedding(embedding) {
 }
 
 // Search for similar embeddings
-export function searchSimilarEmbeddings(embeddingVector, limit = 5) {
+export function searchSimilarEmbeddings(embeddingVector, limit = 20) {
   try {
     const embeddingBuffer = Buffer.from(
       Float32Array.from(embeddingVector).buffer
@@ -213,13 +214,15 @@ export function searchSimilarEmbeddings(embeddingVector, limit = 5) {
     `);
 
     const results = searchStmt.all(embeddingBuffer, limit);
-    const topResults = results.map((row) => ({
-      ...row,
-      similarity: 1 - row.similarity,
-    }));
+    const topResults = results
+      .map((row) => ({
+        ...row,
+        similarity: 1 - row.similarity,
+      }))
+      .filter((row) => row.similarity >= SIMILARITY_THRESHOLD);
 
     console.log(
-      `Found ${topResults.length} similar chunks. Top similarity score: ${
+      `Found ${topResults.length} similar chunks above threshold ${SIMILARITY_THRESHOLD}. Top similarity score: ${
         topResults[0]?.similarity.toFixed(4) || 'N/A'
       }`
     );
