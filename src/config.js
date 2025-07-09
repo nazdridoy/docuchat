@@ -71,6 +71,10 @@ export const SIMILARITY_THRESHOLD = process.env.SIMILARITY_THRESHOLD
 export const CONTEXT_MAX_LENGTH = process.env.CONTEXT_MAX_LENGTH
   ? parseInt(process.env.CONTEXT_MAX_LENGTH)
   : 4096;
+export const DEEP_SEARCH_ENABLED = process.env.DEEP_SEARCH_ENABLED === 'false';
+export const DEEP_SEARCH_INITIAL_THRESHOLD = process.env.DEEP_SEARCH_INITIAL_THRESHOLD
+    ? parseFloat(process.env.DEEP_SEARCH_INITIAL_THRESHOLD)
+    : 0.4;
 
 // Document upload configuration
 export const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB default

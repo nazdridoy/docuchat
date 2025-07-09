@@ -1,15 +1,32 @@
 import { generateEmbedding } from '../embeddings/index.js';
 import { searchSimilarEmbeddings } from '../db/index.js';
-import { CONTEXT_MAX_LENGTH, OPENAI_MODEL } from '../config.js';
+import { 
+    CONTEXT_MAX_LENGTH, 
+    OPENAI_MODEL,
+    DEEP_SEARCH_ENABLED,
+    DEEP_SEARCH_INITIAL_THRESHOLD
+} from '../config.js';
 import openai from '../openai.js';
 
 /**
  * Generates a hypothetical document for a given query using the LLM.
  * @param {string} query - The user's query.
  * @param {Array} history - The chat history.
+ * @param {string|null} context - Optional context from a preliminary search.
+ * @param {function} onProgress - Callback for progress updates.
  * @returns {Promise<string>} The generated hypothetical document.
  */
-async function generateHypotheticalDocument(query, history = []) {
+async function generateHypotheticalDocument(query, history = [], context = null, onProgress = () => {}) {
+  const isContextAware = !!context;
+  const hydeType = isContextAware ? 'Context-Aware' : 'Standard';
+  
+  const systemPrompt = context
+    ? `Based on the following context, please generate a comprehensive and detailed answer to the user query. This answer will be used to find more relevant documents, so it should be grounded in the provided information while expanding on the query. Do not include any preambles or disclaimers, just the answer.
+
+Context:
+${context}`
+    : 'Please generate a comprehensive and detailed answer to the user query. This answer will be used to find relevant documents, so it should be as complete as possible. Do not include any preambles or disclaimers, just the answer.';
+
   const messages = [
     ...history,
     {
@@ -18,18 +35,24 @@ async function generateHypotheticalDocument(query, history = []) {
     },
     {
       role: 'system',
-      content: 'Please generate a comprehensive and detailed answer to the user query. This answer will be used to find relevant documents, so it should be as complete as possible. Do not include any preambles or disclaimers, just the answer.',
+      content: systemPrompt,
     },
   ];
 
   try {
+    const progressMessage = `Generating ${hydeType} hypothetical answer...`;
+    onProgress({ message: progressMessage });
+    console.log(`[RAG-HyDE] ${progressMessage}`);
+    
     const response = await openai.chat.completions.create({
       model: OPENAI_MODEL,
       messages,
     });
-    return response.choices[0].message.content;
+    const doc = response.choices[0].message.content;
+    console.log(`[RAG-HyDE] ${hydeType} hypothetical document generated successfully.`);
+    return doc;
   } catch (error) {
-    console.error('Error generating hypothetical document:', error);
+    console.error(`[RAG-HyDE] Error generating ${hydeType} hypothetical document:`, error);
     // Fallback to query if generation fails
     return query;
   }
@@ -115,40 +138,81 @@ function maximalMarginalRelevance(queryEmbedding, chunks, lambda = 0.5, k = 10) 
  * Retrieve relevant document chunks based on a query
  * @param {string} query - The user's query
  * @param {Array} history - The chat history.
+ * @param {boolean} useDeepSearch - Whether to use deep search mode.
+ * @param {function} onProgress - Callback for progress updates.
  * @returns {Promise<Array>} - Array of relevant document chunks
  */
-export async function retrieveRelevantChunks(query, history = []) {
+export async function retrieveRelevantChunks(query, history = [], useDeepSearch = DEEP_SEARCH_ENABLED, onProgress = () => {}) {
   try {
-    console.log(`Retrieving chunks relevant to query: "${query}"`);
+    onProgress({ message: 'Starting retrieval...' });
+    console.log(`[RAG] Starting retrieval for query: "${query}"`);
+    console.log(`[RAG] Search mode: ${useDeepSearch ? 'Deep Search' : 'Standard'}`);
 
-    // Generate embedding for the original query for MMR relevance
+    // Generate embedding for the original query for MMR relevance scoring later
     const queryEmbedding = await generateEmbedding(query);
 
-    // Generate a hypothetical document for retrieval
-    const hypotheticalDocument = await generateHypotheticalDocument(query, history);
+    let searchEmbedding = queryEmbedding;
+    let contextForHyDE = null;
 
-    // Generate embedding for the hypothetical document for search
-    const searchEmbedding = await generateEmbedding(hypotheticalDocument);
+    if (useDeepSearch) {
+        onProgress({ message: 'Performing initial search...' });
+        console.log(`[RAG-DeepSearch] Stage 1: Performing initial retrieval with threshold ${DEEP_SEARCH_INITIAL_THRESHOLD}...`);
+        const initialChunks = await searchSimilarEmbeddings(
+            queryEmbedding, 
+            20, 
+            DEEP_SEARCH_INITIAL_THRESHOLD
+        );
 
-    // Search for a larger number of similar chunks in the database using the search embedding
+        if (initialChunks.length > 0) {
+            console.log(`[RAG-DeepSearch] Stage 1: Found ${initialChunks.length} initial chunks.`);
+            onProgress({ message: 'Generating context-aware answer...' });
+            console.log(`[RAG-DeepSearch] Stage 2: Generating context-aware HyDE...`);
+            contextForHyDE = formatChunksForContext(initialChunks);
+        } else {
+            console.log('[RAG-DeepSearch] Stage 1: No initial chunks found above threshold. Proceeding with standard HyDE for search.');
+        }
+    } else {
+        console.log('[RAG-StandardSearch] Using standard HyDE for search.');
+    }
+
+    // Generate a hypothetical document for retrieval (potentially with context)
+    const hypotheticalDocument = await generateHypotheticalDocument(query, history, contextForHyDE, onProgress);
+    
+    // If the hypothetical document is different from the original query, generate a new search embedding
+    if (hypotheticalDocument !== query) {
+        console.log('[RAG] Using new hypothetical document embedding for search.');
+        searchEmbedding = await generateEmbedding(hypotheticalDocument);
+    } else {
+        console.log('[RAG] Using original query embedding for search.');
+    }
+
+    // Search for a larger number of similar chunks in the database using the final search embedding
+    const searchStage = useDeepSearch ? 'DeepSearch' : 'StandardSearch';
+    onProgress({ message: 'Performing final search...' });
+    const logStage = useDeepSearch ? 'Stage 3' : 'Standard Search';
+    console.log(`[RAG-${logStage}] Performing final similarity search...`);
     const similarChunks = await searchSimilarEmbeddings(searchEmbedding, 50);
+    console.log(`[RAG-${logStage}] Found ${similarChunks.length} potentially relevant chunks.`);
 
-    // Re-rank chunks using MMR with the original query embedding
+    // Re-rank chunks using MMR with the original query embedding for relevance
+    onProgress({ message: 'Re-ranking results...' });
+    console.log('[RAG] Performing MMR re-ranking...');
     const rerankedChunks = maximalMarginalRelevance(queryEmbedding, similarChunks);
+    console.log(`[RAG] Re-ranked to ${rerankedChunks.length} chunks with MMR.`);
 
     // Log the results for debugging
     if (rerankedChunks.length === 0) {
-      console.log('No relevant chunks found for the query');
+      console.log('[RAG] No relevant chunks found after all stages.');
     } else {
-      console.log(`Retrieved and re-ranked ${rerankedChunks.length} chunks with MMR:`);
+      console.log(`[RAG] Final retrieved chunks:`);
       rerankedChunks.forEach((chunk, i) => {
-        console.log(`- Chunk ${i + 1}: Similarity ${(chunk.similarity * 100).toFixed(2)}%`);
+        console.log(`  - Chunk ${i + 1}: Similarity ${(chunk.similarity * 100).toFixed(2)}%`);
       });
     }
 
     return rerankedChunks;
   } catch (error) {
-    console.error('Error retrieving relevant chunks:', error);
+    console.error('[RAG] Error retrieving relevant chunks:', error);
     throw error;
   }
 }
@@ -183,7 +247,7 @@ export function formatChunksForContext(chunks) {
     }
   }
 
-  console.log(`Formatted context with ${includedChunks} chunks, length: ${context.length} chars.`);
+  console.log(`[RAG] Formatted context with ${includedChunks} chunks, length: ${context.length} chars.`);
 
   return context;
 }

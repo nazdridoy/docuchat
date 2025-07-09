@@ -111,12 +111,13 @@ function splitTextIntoChunks(text, chunkSize, chunkOverlap) {
  */
 export async function processDocument(file) {
   const documentId = crypto.randomUUID();
+  console.log(`[DocProcessor] Starting processing for document: ${file.originalname} (ID: ${documentId})`);
 
   try {
     // Extract file info
     const { originalname, mimetype, size, path: filePath } = file;
     
-    console.log(`Processing document: ${originalname}, type: ${mimetype}, size: ${size}`);
+    console.log(`[DocProcessor] File details: type=${mimetype}, size=${size}`);
     
     // Create document record
     const document = {
@@ -131,24 +132,22 @@ export async function processDocument(file) {
     
     // Extract text content based on file type
     let textContent = '';
-    
+    console.log('[DocProcessor] Extracting text content...');
     if (mimetype === 'application/pdf') {
-      console.log(`Loading PDF from: ${filePath}`);
       const dataBuffer = fs.readFileSync(filePath);
       const pdfData = await pdf(dataBuffer);
       textContent = pdfData.text;
-      console.log(`Extracted ${textContent.length} characters from PDF`);
     } else if (mimetype === 'text/plain' || mimetype.includes('text/')) {
       textContent = await fs.promises.readFile(filePath, 'utf8');
-      console.log(`Extracted ${textContent.length} characters from text file`);
     } else {
       throw new Error(`Unsupported file type: ${mimetype}`);
     }
+    console.log(`[DocProcessor] Extracted ${textContent.length} characters.`);
     
     // Split text into chunks
-    console.log('Splitting text into chunks...');
+    console.log(`[DocProcessor] Splitting text into chunks (size: ${CHUNK_SIZE}, overlap: ${CHUNK_OVERLAP})...`);
     const chunks = splitTextIntoChunks(textContent, CHUNK_SIZE, CHUNK_OVERLAP);
-    console.log(`Generated ${chunks.length} chunks from document`);
+    console.log(`[DocProcessor] Generated ${chunks.length} chunks.`);
     
     // Create chunk records
     const chunkRecords = chunks.map((content) => ({
@@ -158,17 +157,17 @@ export async function processDocument(file) {
     }));
     
     // Insert chunks into database
-    console.log(`Inserting ${chunkRecords.length} chunks into database...`);
+    console.log(`[DocProcessor] Inserting ${chunkRecords.length} chunks into database...`);
     await insertChunks(chunkRecords);
     
     // Generate embeddings for all chunks
-    console.log('Generating embeddings for chunks...');
+    console.log(`[DocProcessor] Generating embeddings for ${chunkRecords.length} chunks in batches...`);
     const chunkContents = chunkRecords.map((chunk) => chunk.content);
     const embeddings = await generateEmbeddingsBatch(chunkContents);
-    console.log(`Generated ${embeddings.length} embeddings`);
+    console.log(`[DocProcessor] Generated ${embeddings.length} embeddings.`);
     
     // Create embedding records
-    console.log('Storing embeddings in database...');
+    console.log(`[DocProcessor] Storing ${embeddings.length} embeddings in database...`);
     for (let i = 0; i < chunkRecords.length; i++) {
       const embeddingRecord = {
         id: crypto.randomUUID(),
@@ -180,7 +179,7 @@ export async function processDocument(file) {
       await insertEmbedding(embeddingRecord);
     }
     
-    console.log(`Successfully processed document: ${originalname}`);
+    console.log(`[DocProcessor] Successfully processed document: ${originalname}`);
     return {
       id: documentId,
       name: originalname,
@@ -189,13 +188,13 @@ export async function processDocument(file) {
       chunks: chunkRecords.length,
     };
   } catch (error) {
-    console.error('Error processing document:', error);
+    console.error(`[DocProcessor] Error processing document ${documentId}:`, error);
     // Cleanup - delete the document and its associated data if processing failed
     try {
-      console.log(`Cleaning up failed document processing: ${documentId}`);
+      console.log(`[DocProcessor] Cleaning up failed document processing: ${documentId}`);
       await deleteDocument(documentId);
     } catch (cleanupError) {
-      console.error('Failed to clean up document:', cleanupError);
+      console.error(`[DocProcessor] Failed to clean up document ${documentId}:`, cleanupError);
     }
     throw error;
   }

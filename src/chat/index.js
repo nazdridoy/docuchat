@@ -6,12 +6,15 @@ import { retrieveRelevantChunks, formatChunksForContext } from '../rag/index.js'
  * Process a chat message using the RAG approach
  * @param {string} message - The user's message
  * @param {Array} history - Previous chat history (optional)
+ * @param {boolean} deepSearch - Whether to use deep search mode
+ * @param {function} onProgress - Callback function for progress updates.
  * @returns {Promise<Object>} - The chat response
  */
-export async function processMessage(message, history = []) {
+export async function processMessage(message, history = [], deepSearch = false, onProgress = () => {}) {
   try {
+    console.log(`[Chat] Processing message: "${message}"`);
     // Retrieve relevant document chunks
-    const relevantChunks = await retrieveRelevantChunks(message, history);
+    const relevantChunks = await retrieveRelevantChunks(message, history, deepSearch, onProgress);
     
     // Format chunks for context
     const context = formatChunksForContext(relevantChunks);
@@ -38,12 +41,14 @@ ${context}`
     ];
     
     // Call the OpenAI API
+    console.log('[Chat] Sending final prompt to LLM...');
     const completion = await openai.chat.completions.create({
       model: OPENAI_MODEL,
       messages,
     });
     
     const responseMessage = completion.choices[0].message;
+    console.log('[Chat] Received response from LLM.');
     
     // Return the response along with the chunks used for context
     return {
@@ -55,7 +60,7 @@ ${context}`
       usage: completion.usage
     };
   } catch (error) {
-    console.error('Error processing chat message:', error);
+    console.error('[Chat] Error processing chat message:', error);
     throw error;
   }
 }

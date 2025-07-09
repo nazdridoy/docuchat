@@ -4,24 +4,41 @@ import { processMessage } from '../chat/index.js';
 const router = express.Router();
 
 /**
- * @route POST /api/chat
- * @description Process a chat message and return a response
+ * @route GET /api/chat
+ * @description Process a chat message and stream the response using SSE.
  */
-router.post('/', async (req, res) => {
+router.get('/', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const onProgress = (data) => {
+    res.write(`event: progress\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+
   try {
-    const { message, history } = req.body;
+    const { message, history, deepSearch } = req.query;
     
     if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+      res.write(`event: error\ndata: ${JSON.stringify({ error: 'Message is required' })}\n\n`);
+      return res.end();
     }
     
-    // Process the message
-    const response = await processMessage(message, history || []);
+    const parsedHistory = history ? JSON.parse(history) : [];
+    const useDeepSearch = deepSearch === 'true';
+
+    // Process the message and get the final response
+    const finalResponse = await processMessage(message, parsedHistory, useDeepSearch, onProgress);
     
-    res.json(response);
+    // Send the final complete message
+    res.write(`event: final\ndata: ${JSON.stringify(finalResponse)}\n\n`);
+
   } catch (error) {
-    console.error('Error processing chat message:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[API] Error processing chat message:', error);
+    res.write(`event: error\ndata: ${JSON.stringify({ error: error.message })}\n\n`);
+  } finally {
+    res.end();
   }
 });
 

@@ -11,7 +11,7 @@ import { generateEmbedding } from '../embeddings/index.js';
 
 if (!USE_LOCAL_DB) {
   console.warn(
-    'Warning: `better-sqlite3` is in use, but USE_LOCAL_DB is false. This setup only supports local databases.'
+    '[DB] Warning: `better-sqlite3` is in use, but USE_LOCAL_DB is false. This setup only supports local databases.'
   );
 }
 
@@ -57,16 +57,16 @@ export async function initializeDatabase() {
     let dimensions;
     if (EMBEDDING_DIMENSIONS) {
       dimensions = parseInt(EMBEDDING_DIMENSIONS);
-      console.log(`Using configured embedding dimension: ${dimensions}`);
+      console.log(`[DB] Using configured embedding dimension: ${dimensions}`);
     } else {
       try {
-        console.log('Detecting embedding dimension from model...');
+        console.log('[DB] Detecting embedding dimension from model...');
         const testEmbedding = await generateEmbedding('test');
         dimensions = testEmbedding.length;
-        console.log(`Detected embedding dimension: ${dimensions}`);
+        console.log(`[DB] Detected embedding dimension: ${dimensions}`);
       } catch (e) {
         console.error(
-          'Failed to detect embedding dimension from model. Please set EMBEDDING_DIMENSIONS environment variable.',
+          '[DB] Failed to detect embedding dimension from model. Please set EMBEDDING_DIMENSIONS environment variable.',
           e
         );
         throw new Error('Could not determine embedding dimension.');
@@ -83,10 +83,10 @@ export async function initializeDatabase() {
       )
     `);
 
-    console.log('Database tables initialized successfully with better-sqlite3');
-    console.log(`Using local SQLite database at: ${dbPath}`);
+    console.log('[DB] Database tables initialized successfully.');
+    console.log(`[DB] Using local SQLite database at: ${dbPath}`);
   } catch (error) {
-    console.error('Failed to initialize database tables:', error);
+    console.error('[DB] Failed to initialize database tables:', error);
     throw error;
   }
 }
@@ -101,7 +101,7 @@ export function insertDocument(document) {
     stmt.run(id, name, type, size);
     return { id };
   } catch (error) {
-    console.error('Failed to insert document:', error);
+    console.error('[DB] Failed to insert document:', error);
     throw error;
   }
 }
@@ -111,7 +111,7 @@ export function getDocuments() {
     const stmt = db.prepare(`SELECT * FROM documents ORDER BY created_at DESC`);
     return stmt.all();
   } catch (error) {
-    console.error('Failed to get documents:', error);
+    console.error('[DB] Failed to get documents:', error);
     throw error;
   }
 }
@@ -138,7 +138,7 @@ export function deleteDocument(id) {
     })();
     return { success: true };
   } catch (error) {
-    console.error('Failed to delete document:', error);
+    console.error('[DB] Failed to delete document:', error);
     throw error;
   }
 }
@@ -156,7 +156,7 @@ export function insertChunks(chunks) {
     })();
     return { success: true, count: chunks.length };
   } catch (error) {
-    console.error('Failed to insert chunks:', error);
+    console.error('[DB] Failed to insert chunks:', error);
     throw error;
   }
 }
@@ -183,13 +183,13 @@ export function insertEmbedding(embedding) {
     stmt.run(chunkRowId, embeddingBuffer);
     return { success: true };
   } catch (error) {
-    console.error('Failed to insert embedding:', error);
+    console.error('[DB] Failed to insert embedding:', error);
     throw error;
   }
 }
 
 // Search for similar embeddings
-export function searchSimilarEmbeddings(embeddingVector, limit = 20) {
+export function searchSimilarEmbeddings(embeddingVector, limit = 20, overrideThreshold = null) {
   try {
     const embeddingBuffer = Buffer.from(
       Float32Array.from(embeddingVector).buffer
@@ -215,6 +215,8 @@ export function searchSimilarEmbeddings(embeddingVector, limit = 20) {
       JOIN vss_embeddings v ON v.rowid = m.rowid
     `);
 
+    const threshold = overrideThreshold !== null ? overrideThreshold : SIMILARITY_THRESHOLD;
+
     const results = searchStmt.all(embeddingBuffer, limit);
     const topResults = results
       .map((row) => ({
@@ -222,17 +224,17 @@ export function searchSimilarEmbeddings(embeddingVector, limit = 20) {
         similarity: 1 - row.similarity,
         embedding: Array.from(new Float32Array(row.embedding.buffer)),
       }))
-      .filter((row) => row.similarity >= SIMILARITY_THRESHOLD);
+      .filter((row) => row.similarity >= threshold);
 
     console.log(
-      `Found ${topResults.length} similar chunks above threshold ${SIMILARITY_THRESHOLD}. Top similarity score: ${
+      `[DB] Found ${topResults.length} similar chunks above threshold ${threshold}. Top similarity score: ${
         topResults[0]?.similarity.toFixed(4) || 'N/A'
       }`
     );
 
     return topResults;
   } catch (error) {
-    console.error('Failed to search similar embeddings:', error);
+    console.error('[DB] Failed to search similar embeddings:', error);
     throw error;
   }
 }

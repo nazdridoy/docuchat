@@ -8,6 +8,7 @@ const messagesContainer = document.getElementById('messages-container');
 const chatPlaceholder = document.getElementById('chat-placeholder');
 const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
+const deepSearchToggle = document.getElementById('deep-search-toggle');
 
 // Chat history
 let chatHistory = [];
@@ -139,62 +140,60 @@ async function deleteDocument(id) {
 
 async function sendMessage() {
   const message = messageInput.value.trim();
-  
-  if (!message) {
-    return;
-  }
-  
-  // Hide placeholder if visible
+  if (!message) return;
+
   if (chatPlaceholder.style.display !== 'none') {
     chatPlaceholder.style.display = 'none';
   }
-  
-  // Add user message to UI
+
   addMessage('user', message);
-  
-  // Clear input
   messageInput.value = '';
-  
-  try {
-    // Add user message to history
-    chatHistory.push({ role: 'user', content: message });
-    
-    // Show loading indicator
-    const loadingElement = addMessage('assistant', 'Thinking...');
-    
-    // Send message to API
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message,
-        history: chatHistory.slice(0, -1) // Exclude the latest user message
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to get response');
+  chatHistory.push({ role: 'user', content: message });
+
+  const useDeepSearch = deepSearchToggle.checked;
+  const thinkingMessage = useDeepSearch ? 'Performing deep search...' : 'Thinking...';
+  const assistantMessageElement = addMessage('assistant', thinkingMessage);
+  let currentContent = thinkingMessage;
+
+  const queryParams = new URLSearchParams({
+    message,
+    history: JSON.stringify(chatHistory.slice(0, -1)),
+    deepSearch: useDeepSearch,
+  });
+
+  const eventSource = new EventSource(`/api/chat?${queryParams.toString()}`);
+
+  eventSource.addEventListener('progress', (e) => {
+    const progressData = JSON.parse(e.data);
+    currentContent = progressData.message;
+    const contentElement = assistantMessageElement.querySelector('.message-content');
+    if (contentElement) {
+        contentElement.textContent = currentContent;
     }
+  });
+
+  eventSource.addEventListener('final', (e) => {
+    const result = JSON.parse(e.data);
     
-    const result = await response.json();
-    
-    // Remove loading indicator
-    messagesContainer.removeChild(loadingElement);
-    
-    // Add assistant message to UI with source chunks
+    messagesContainer.removeChild(assistantMessageElement);
     addMessage('assistant', result.message.content, result.sourceChunks);
-    
-    // Add assistant message to history
     chatHistory.push({ role: 'assistant', content: result.message.content });
-  } catch (error) {
-    console.error('Error sending message:', error);
     
-    // Show error message
-    addMessage('assistant', `Error: ${error.message}`);
-  }
+    eventSource.close();
+  });
+
+  eventSource.addEventListener('error', (e) => {
+    console.error('SSE Error:', e);
+    const errorContent = currentContent === thinkingMessage
+      ? 'Error getting response.'
+      : `${currentContent}\n\nError processing further.`;
+
+    const contentElement = assistantMessageElement.querySelector('.message-content');
+    if (contentElement) {
+        contentElement.textContent = errorContent;
+    }
+    eventSource.close();
+  });
 }
 
 function addMessage(role, content, sourceChunks = null) {
