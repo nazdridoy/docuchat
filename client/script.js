@@ -200,7 +200,17 @@ async function sendMessage() {
 function addMessage(role, content, sourceChunks = null) {
   const messageElement = document.createElement('div');
   messageElement.className = `message ${role}-message`;
-  messageElement.textContent = content;
+  
+  const contentElement = document.createElement('div');
+  contentElement.className = 'message-content';
+  
+  if (role === 'assistant') {
+    contentElement.innerHTML = marked.parse(content);
+  } else {
+    contentElement.textContent = content;
+  }
+  
+  messageElement.appendChild(contentElement);
   
   // Add source chunks if available
   if (sourceChunks && sourceChunks.length > 0) {
