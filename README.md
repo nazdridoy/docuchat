@@ -74,6 +74,7 @@ RAG_API_KEY="your-openai-api-key"
 # RAG_BASE_URL="http://127.0.0.1:11434/v1"
 # RAG_MODEL="mxbai-embed-large:latest"
 # RAG_API_KEY="ollama" # Any value works here
+# EMBEDDING_DIMENSIONS=1024
 
 # Document Upload Configuration
 MAX_FILE_SIZE=10485760 # 10MB
