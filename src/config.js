@@ -31,6 +31,9 @@ export const RAG_BASE_URL = process.env.RAG_BASE_URL || 'https://api.openai.com/
 export const RAG_MODEL = process.env.RAG_MODEL || 'text-embedding-ada-002';
 export const RAG_API_KEY = process.env.RAG_API_KEY || process.env.OPENAI_API_KEY;
 
+// Embedding configuration
+export const EMBEDDING_DIMENSIONS = process.env.EMBEDDING_DIMENSIONS;
+
 // Document upload configuration
 export const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760'); // 10MB default
 export const UPLOAD_DIRECTORY = process.env.UPLOAD_DIRECTORY || join(rootDir, 'uploads');
