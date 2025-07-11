@@ -8,9 +8,10 @@ import { retrieveRelevantChunks, formatChunksForContext } from '../rag/index.js'
  * @param {Array} history - Previous chat history (optional)
  * @param {boolean} deepSearch - Whether to use deep search mode
  * @param {function} onProgress - Callback function for progress updates.
+ * @param {function} onToken - Callback function for streaming tokens
  * @returns {Promise<Object>} - The chat response
  */
-export async function processMessage(message, history = [], deepSearch = false, onProgress = () => {}) {
+export async function processMessage(message, history = [], deepSearch = false, onProgress = () => {}, onToken = null) {
   try {
     console.log(`[Chat] Processing message: "${message}"`);
     // Retrieve relevant document chunks
@@ -42,12 +43,50 @@ ${context}`
     
     // Call the OpenAI API
     console.log('[Chat] Sending final prompt to LLM...');
-    const completion = await openai.chat.completions.create({
-      model: OPENAI_MODEL,
-      messages,
-    });
     
-    const responseMessage = completion.choices[0].message;
+    let responseMessage = null;
+    let usageInfo = null;
+    
+    if (onToken) {
+      // Use streaming mode
+      onProgress({ message: 'Generating response...' });
+      
+      const stream = await openai.chat.completions.create({
+        model: OPENAI_MODEL,
+        messages,
+        stream: true,
+      });
+      
+      let fullContent = '';
+      
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          fullContent += content;
+          onToken(content);
+        }
+      }
+      
+      // Create response message object in the same format as non-streaming
+      responseMessage = { role: 'assistant', content: fullContent };
+      
+      // We don't get usage info from streaming responses
+      usageInfo = { 
+        prompt_tokens: 0,
+        completion_tokens: 0,
+        total_tokens: 0
+      };
+    } else {
+      // Use non-streaming mode (original implementation)
+      const completion = await openai.chat.completions.create({
+        model: OPENAI_MODEL,
+        messages,
+      });
+      
+      responseMessage = completion.choices[0].message;
+      usageInfo = completion.usage;
+    }
+    
     console.log('[Chat] Received response from LLM.');
     
     // Return the response along with the chunks used for context
@@ -58,7 +97,7 @@ ${context}`
         similarity: chunk.similarity,
         documentName: chunk.documentName
       })),
-      usage: completion.usage
+      usage: usageInfo
     };
   } catch (error) {
     console.error('[Chat] Error processing chat message:', error);

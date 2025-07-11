@@ -187,6 +187,9 @@ async function sendMessage() {
   const thinkingMessage = useDeepSearch ? 'Performing deep search...' : 'Thinking...';
   const assistantMessageElement = addMessage('assistant', thinkingMessage);
   let currentContent = thinkingMessage;
+  
+  // Create a content element that will be updated with streaming tokens
+  const contentElement = assistantMessageElement.querySelector('.message-content');
 
   const queryParams = new URLSearchParams({
     message,
@@ -195,38 +198,117 @@ async function sendMessage() {
   });
 
   const eventSource = new EventSource(`/api/chat?${queryParams.toString()}`);
+  
+  // For storing source chunks that will come with the final event
+  let sourceChunks = null;
+  
+  // For markdown rendering at appropriate intervals
+  let markdownRenderTimer = null;
+  let streamingResponse = '';
 
   eventSource.addEventListener('progress', (e) => {
     const progressData = JSON.parse(e.data);
     currentContent = progressData.message;
-    const contentElement = assistantMessageElement.querySelector('.message-content');
     if (contentElement) {
-        contentElement.textContent = currentContent;
+      contentElement.textContent = currentContent;
     }
+  });
+  
+  eventSource.addEventListener('token', (e) => {
+    const data = JSON.parse(e.data);
+    streamingResponse += data.token;
+    
+    // Clear any pending renders
+    if (markdownRenderTimer) {
+      clearTimeout(markdownRenderTimer);
+    }
+    
+    // Schedule a new render after a short delay
+    // This prevents rendering on every token while still keeping it responsive
+    markdownRenderTimer = setTimeout(() => {
+      if (contentElement) {
+        contentElement.innerHTML = marked.parse(streamingResponse);
+      }
+    }, 50);
   });
 
   eventSource.addEventListener('final', (e) => {
     const result = JSON.parse(e.data);
+    sourceChunks = result.sourceChunks;
     
-    messagesContainer.removeChild(assistantMessageElement);
-    addMessage('assistant', result.message.content, result.sourceChunks);
+    // Clear any pending renders
+    if (markdownRenderTimer) {
+      clearTimeout(markdownRenderTimer);
+    }
+    
+    // Ensure the content is fully rendered with markdown
+    if (contentElement) {
+      contentElement.innerHTML = marked.parse(streamingResponse);
+    }
+    
+    // Add the final message to chat history
     chatHistory.push({ role: 'assistant', content: result.message.content });
+    
+    // Add source chunks to the message if available
+    if (sourceChunks && sourceChunks.length > 0) {
+      addSourceChunksToMessage(assistantMessageElement, sourceChunks);
+    }
     
     eventSource.close();
   });
 
   eventSource.addEventListener('error', (e) => {
     console.error('SSE Error:', e);
-    const errorContent = currentContent === thinkingMessage
-      ? 'Error getting response.'
-      : `${currentContent}\n\nError processing further.`;
-
-    const contentElement = assistantMessageElement.querySelector('.message-content');
-    if (contentElement) {
-        contentElement.textContent = errorContent;
+    
+    // Clear any pending renders
+    if (markdownRenderTimer) {
+      clearTimeout(markdownRenderTimer);
     }
+    
+    const errorContent = streamingResponse 
+      ? `${streamingResponse}\n\nError processing further.`
+      : 'Error getting response.';
+
+    if (contentElement) {
+      contentElement.innerHTML = marked.parse(errorContent);
+    }
+    
     eventSource.close();
   });
+}
+
+/**
+ * Creates source chunks UI element
+ * @param {Array} sourceChunks - Array of source chunks to display
+ * @returns {HTMLElement} - The source chunks element
+ */
+function createSourceChunksElement(sourceChunks) {
+  if (!sourceChunks || sourceChunks.length === 0) return null;
+  
+  const sourcesElement = document.createElement('div');
+  sourcesElement.className = 'source-chunks';
+  sourcesElement.innerHTML = '<details><summary>Sources</summary></details>';
+  
+  const detailsElement = sourcesElement.querySelector('details');
+  
+  // Sort chunks by similarity
+  const sortedChunks = [...sourceChunks].sort((a, b) => b.similarity - a.similarity);
+  
+  sortedChunks.forEach((chunk, index) => {
+    const chunkElement = document.createElement('div');
+    chunkElement.className = 'source-chunk';
+    
+    // Get document name from chunk metadata
+    const docName = chunk.documentName || 'Unknown Document';
+    
+    chunkElement.innerHTML = `<strong>Source ${index + 1}</strong> (Similarity: ${(chunk.similarity * 100).toFixed(1)}%)<br>
+      <div style="white-space: pre-wrap; font-size: 0.85rem; margin-top: 0.25rem;">${chunk.content}</div>
+      <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">Origin: ${docName}</div>`;
+    
+    detailsElement.appendChild(chunkElement);
+  });
+  
+  return sourcesElement;
 }
 
 function addMessage(role, content, sourceChunks = null) {
@@ -246,27 +328,10 @@ function addMessage(role, content, sourceChunks = null) {
   
   // Add source chunks if available
   if (sourceChunks && sourceChunks.length > 0) {
-    const sourcesElement = document.createElement('div');
-    sourcesElement.className = 'source-chunks';
-    sourcesElement.innerHTML = '<details><summary>Sources</summary></details>';
-    
-    const detailsElement = sourcesElement.querySelector('details');
-    
-    sourceChunks.forEach((chunk, index) => {
-      const chunkElement = document.createElement('div');
-      chunkElement.className = 'source-chunk';
-      
-      // Get document name from chunk metadata if available
-      const docName = chunk.documentName || 'Unknown Document';
-      
-      chunkElement.innerHTML = `<strong>Source ${index + 1}</strong> (Similarity: ${(chunk.similarity * 100).toFixed(1)}%)<br>
-        <div style="white-space: pre-wrap; font-size: 0.85rem; margin-top: 0.25rem;">${chunk.content}</div>
-        <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">Origin: ${docName}</div>`;
-      
-      detailsElement.appendChild(chunkElement);
-    });
-    
-    messageElement.appendChild(sourcesElement);
+    const sourcesElement = createSourceChunksElement(sourceChunks);
+    if (sourcesElement) {
+      messageElement.appendChild(sourcesElement);
+    }
   }
   
   messagesContainer.appendChild(messageElement);
@@ -275,6 +340,24 @@ function addMessage(role, content, sourceChunks = null) {
   chatContainer.scrollTop = chatContainer.scrollHeight;
   
   return messageElement;
+}
+
+/**
+ * Adds source chunks to a message element
+ * @param {HTMLElement} messageElement - The message element to add source chunks to
+ * @param {Array} sourceChunks - Array of source chunks to display
+ */
+function addSourceChunksToMessage(messageElement, sourceChunks) {
+  if (!sourceChunks || sourceChunks.length === 0) return;
+  
+  // Check if sources already exist
+  const existingSourcesEl = messageElement.querySelector('.source-chunks');
+  if (existingSourcesEl) return;
+  
+  const sourcesElement = createSourceChunksElement(sourceChunks);
+  if (sourcesElement) {
+    messageElement.appendChild(sourcesElement);
+  }
 }
 
 // Calculate SHA-256 hash of a file

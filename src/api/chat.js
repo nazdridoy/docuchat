@@ -16,6 +16,10 @@ router.get('/', async (req, res) => {
   const onProgress = (data) => {
     res.write(`event: progress\ndata: ${JSON.stringify(data)}\n\n`);
   };
+  
+  const onToken = (token) => {
+    res.write(`event: token\ndata: ${JSON.stringify({ token })}\n\n`);
+  };
 
   try {
     const { message, history, deepSearch } = req.query;
@@ -28,10 +32,10 @@ router.get('/', async (req, res) => {
     const parsedHistory = history ? JSON.parse(history) : [];
     const useDeepSearch = deepSearch === 'true';
 
-    // Process the message and get the final response
-    const finalResponse = await processMessage(message, parsedHistory, useDeepSearch, onProgress);
+    // Process the message and get the final response with streaming
+    const finalResponse = await processMessage(message, parsedHistory, useDeepSearch, onProgress, onToken);
     
-    // Send the final complete message
+    // Send the final complete message with source chunks
     res.write(`event: final\ndata: ${JSON.stringify(finalResponse)}\n\n`);
 
   } catch (error) {
