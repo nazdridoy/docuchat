@@ -23,11 +23,11 @@ async function generateHypotheticalDocument(query, history = [], context = null,
   const hydeType = isContextAware ? 'Context-Aware' : 'Standard';
   
   const systemPrompt = context
-    ? `Based on the following context, please generate a comprehensive and detailed answer to the user query. This answer will be used to find more relevant documents, so it should be grounded in the provided information while expanding on the query. Do not include any preambles or disclaimers, just the answer.
+    ? `Based on the following context, please generate a comprehensive, detailed and thorough answer to the user query. Include specific technical details, definitions, frameworks, processes, and examples. This answer will be used to find more relevant documents, so it should be extensive and cover multiple aspects of the topic. Aim for depth and breadth in your response. Do not include any preambles or disclaimers, just the answer.
 
 Context:
 ${context}`
-    : 'Please generate a comprehensive and detailed answer to the user query. This answer will be used to find relevant documents, so it should be as complete as possible. Do not include any preambles or disclaimers, just the answer.';
+    : 'Please generate a comprehensive, detailed and thorough answer to the user query. Include specific technical details, definitions, frameworks, processes, and examples. This answer will be used to find relevant documents, so it should be extensive and cover multiple aspects of the topic. Aim for depth and breadth in your response. Do not include any preambles or disclaimers, just the answer.';
 
   const messages = [
     ...history,
@@ -193,13 +193,13 @@ export async function retrieveRelevantChunks(query, history = [], useDeepSearch 
     onProgress({ message: 'Performing final search...' });
     const logStage = useDeepSearch ? 'Stage 3' : 'Standard Search';
     console.log(`[RAG-${logStage}] Performing final similarity search...`);
-    const similarChunks = await searchSimilarEmbeddings(searchEmbedding, 50);
+    const similarChunks = await searchSimilarEmbeddings(searchEmbedding, 100); // Increase from 50
     console.log(`[RAG-${logStage}] Found ${similarChunks.length} potentially relevant chunks.`);
 
     // Re-rank chunks using MMR with the original query embedding for relevance
     onProgress({ message: 'Re-ranking results...' });
     console.log('[RAG] Performing MMR re-ranking...');
-    const rerankedChunks = maximalMarginalRelevance(queryEmbedding, similarChunks);
+    const rerankedChunks = maximalMarginalRelevance(queryEmbedding, similarChunks, 0.3, 20); // Lambda to 0.3 (more diversity) and k to 20
     console.log(`[RAG] Re-ranked to ${rerankedChunks.length} chunks with MMR.`);
 
     // Log the results for debugging
