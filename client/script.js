@@ -222,8 +222,13 @@ function addMessage(role, content, sourceChunks = null) {
     sourceChunks.forEach((chunk, index) => {
       const chunkElement = document.createElement('div');
       chunkElement.className = 'source-chunk';
+      
+      // Get document name from chunk metadata if available
+      const docName = chunk.documentName || 'Unknown Document';
+      
       chunkElement.innerHTML = `<strong>Source ${index + 1}</strong> (Similarity: ${(chunk.similarity * 100).toFixed(1)}%)<br>
-        <div style="white-space: pre-wrap; font-size: 0.85rem; margin-top: 0.25rem;">${chunk.content}</div>`;
+        <div style="white-space: pre-wrap; font-size: 0.85rem; margin-top: 0.25rem;">${chunk.content}</div>
+        <div style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;">Origin: ${docName}</div>`;
       
       detailsElement.appendChild(chunkElement);
     });

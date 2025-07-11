@@ -4,9 +4,11 @@ import {
     CONTEXT_MAX_LENGTH, 
     OPENAI_MODEL,
     DEEP_SEARCH_ENABLED,
-    DEEP_SEARCH_INITIAL_THRESHOLD
+    DEEP_SEARCH_INITIAL_THRESHOLD,
+    DATABASE_URL
 } from '../config.js';
 import openai from '../openai.js';
+import Database from 'better-sqlite3';
 
 /**
  * Generates a hypothetical document for a given query using the LLM.
@@ -233,9 +235,45 @@ export function formatChunksForContext(chunks) {
   let context = '';
   let includedChunks = 0;
   
+  // Create a map of document IDs to document names (to avoid querying inside the loop)
+  const documentNames = new Map();
+  
+  // First pass to gather unique document IDs
+  const uniqueDocIds = [...new Set(sortedChunks.map(chunk => chunk.document_id))];
+  
+  // Get document names from database if there are chunks
+  if (uniqueDocIds.length > 0) {
+    try {
+      const dbPath = DATABASE_URL.startsWith('file:')
+        ? DATABASE_URL.substring(5)
+        : DATABASE_URL;
+      
+      const db = new Database(dbPath);
+      
+      const placeholders = uniqueDocIds.map(() => '?').join(',');
+      const query = `SELECT id, name FROM documents WHERE id IN (${placeholders})`;
+      const documents = db.prepare(query).all(uniqueDocIds);
+      
+      documents.forEach(doc => {
+        documentNames.set(doc.id, doc.name);
+      });
+      
+      db.close();
+    } catch (error) {
+      console.error('[RAG] Error fetching document names:', error);
+      // Continue without document names if there's an error
+    }
+  }
+  
   for (const chunk of sortedChunks) {
     const similarityPercentage = (chunk.similarity * 100).toFixed(1);
-    const chunkHeader = `[Document Chunk ${includedChunks + 1} - Relevance: ${similarityPercentage}%]\n`;
+    const docName = documentNames.get(chunk.document_id) || 'Unknown Document';
+    
+    // Store document info in the chunk metadata for client-side display
+    chunk.documentName = docName;
+    
+    // Use simple numbered citations
+    const chunkHeader = `[Source ${includedChunks + 1}]\n`;
     const chunkContent = `${chunk.content}\n\n`;
     
     if (context.length + chunkHeader.length + chunkContent.length <= CONTEXT_MAX_LENGTH) {
@@ -248,7 +286,6 @@ export function formatChunksForContext(chunks) {
   }
 
   console.log(`[RAG] Formatted context with ${includedChunks} chunks, length: ${context.length} chars.`);
-
   return context;
 }
 

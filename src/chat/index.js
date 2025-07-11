@@ -29,8 +29,8 @@ Follow these instructions carefully:
 1.  **Analyze the Context**: Thoroughly read and understand the provided document context before answering the user's question.
 2.  **Answer from Context**: Base your answers strictly on the information given in the context. Do not use any external knowledge or make up information.
 3.  **Handle Insufficient Information**: If the context does not contain the information needed to answer the question, state clearly: "I don't have enough information to answer that question based on the provided documents."
-4.  **Cite Your Sources**: When you provide information from the context, you MUST cite the specific document chunk it came from. For example: "[Document Chunk 1]".
-5.  **Synthesize Information**: If multiple chunks are relevant, synthesize the information into a coherent answer.
+4.  **Cite Your Sources**: When you provide information from the context, you MUST cite the specific source it came from using the format [Source X] where X is the source number.
+5.  **Synthesize Information**: If multiple sources are relevant, synthesize the information into a coherent answer.
 6.  **Be Concise and Clear**: Provide a clear and concise answer. Avoid unnecessary jargon or overly long responses.
 
 Here is the relevant document context:
@@ -55,7 +55,8 @@ ${context}`
       message: responseMessage,
       sourceChunks: relevantChunks.map(chunk => ({
         content: chunk.content,
-        similarity: chunk.similarity
+        similarity: chunk.similarity,
+        documentName: chunk.documentName
       })),
       usage: completion.usage
     };
