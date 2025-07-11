@@ -39,6 +39,7 @@ export async function initializeDatabase() {
         name TEXT NOT NULL,
         type TEXT NOT NULL,
         size INTEGER NOT NULL,
+        file_hash TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -94,11 +95,11 @@ export async function initializeDatabase() {
 // Document operations
 export function insertDocument(document) {
   try {
-    const { id, name, type, size } = document;
+    const { id, name, type, size, fileHash } = document;
     const stmt = db.prepare(
-      `INSERT INTO documents (id, name, type, size) VALUES (?, ?, ?, ?)`
+      `INSERT INTO documents (id, name, type, size, file_hash) VALUES (?, ?, ?, ?, ?)`
     );
-    stmt.run(id, name, type, size);
+    stmt.run(id, name, type, size, fileHash);
     return { id };
   } catch (error) {
     console.error('[DB] Failed to insert document:', error);
@@ -239,6 +240,17 @@ export function searchSimilarEmbeddings(embeddingVector, limit = 20, overrideThr
   }
 }
 
+// Find document by hash
+export function findDocumentByHash(fileHash) {
+  try {
+    const stmt = db.prepare(`SELECT * FROM documents WHERE file_hash = ? LIMIT 1`);
+    return stmt.get(fileHash);
+  } catch (error) {
+    console.error('[DB] Failed to find document by hash:', error);
+    throw error;
+  }
+}
+
 export default {
   db,
   initializeDatabase,
@@ -248,4 +260,5 @@ export default {
   insertChunks,
   insertEmbedding,
   searchSimilarEmbeddings,
+  findDocumentByHash,
 }; 

@@ -4,7 +4,7 @@ import path from 'path';
 import fs from 'fs';
 import { UPLOAD_DIRECTORY, MAX_FILE_SIZE } from '../config.js';
 import { processDocument } from '../documents/index.js';
-import { getDocuments, deleteDocument } from '../db/index.js';
+import { getDocuments, deleteDocument, findDocumentByHash } from '../db/index.js';
 
 const router = express.Router();
 
@@ -46,6 +46,29 @@ const upload = multer({
 });
 
 /**
+ * @route GET /api/documents/check/:hash
+ * @description Check if a document with given hash already exists
+ */
+router.get('/check/:hash', async (req, res) => {
+  try {
+    const { hash } = req.params;
+    const existingDoc = await findDocumentByHash(hash);
+    
+    if (existingDoc) {
+      return res.json({ 
+        exists: true, 
+        document: existingDoc 
+      });
+    }
+    
+    res.json({ exists: false });
+  } catch (error) {
+    console.error('Error checking document hash:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * @route POST /api/documents
  * @description Upload and process a document
  */
@@ -55,8 +78,25 @@ router.post('/', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
+    const fileHash = req.body.hash;
+    if (!fileHash) {
+      return res.status(400).json({ error: 'File hash is required' });
+    }
+    
+    // Check if document with this hash already exists
+    const existingDoc = await findDocumentByHash(fileHash);
+    if (existingDoc) {
+      // Remove the uploaded file since it's a duplicate
+      fs.unlinkSync(req.file.path);
+      
+      return res.status(409).json({ 
+        error: 'Duplicate document', 
+        document: existingDoc 
+      });
+    }
+    
     // Process the uploaded document
-    const result = await processDocument(req.file);
+    const result = await processDocument(req.file, fileHash);
     
     res.status(201).json(result);
   } catch (error) {

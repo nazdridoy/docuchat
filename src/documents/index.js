@@ -109,7 +109,7 @@ function splitTextIntoChunks(text, chunkSize, chunkOverlap) {
  * @param {Object} file - The uploaded file object
  * @returns {Promise<Object>} - The processed document info
  */
-export async function processDocument(file) {
+export async function processDocument(file, fileHash) {
   const documentId = crypto.randomUUID();
   console.log(`[DocProcessor] Starting processing for document: ${file.originalname} (ID: ${documentId})`);
 
@@ -117,7 +117,7 @@ export async function processDocument(file) {
     // Extract file info
     const { originalname, mimetype, size, path: filePath } = file;
     
-    console.log(`[DocProcessor] File details: type=${mimetype}, size=${size}`);
+    console.log(`[DocProcessor] File details: type=${mimetype}, size=${size}, hash=${fileHash}`);
     
     // Create document record
     const document = {
@@ -125,6 +125,7 @@ export async function processDocument(file) {
       name: originalname,
       type: mimetype,
       size,
+      fileHash,
     };
     
     // Insert document into database

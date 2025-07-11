@@ -10,6 +10,9 @@ const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
 const deepSearchToggle = document.getElementById('deep-search-toggle');
 
+// File hash cache to avoid recalculating
+const fileHashCache = new Map();
+
 // Chat history
 let chatHistory = [];
 
@@ -81,12 +84,32 @@ async function uploadDocument(e) {
     return;
   }
   
-  const formData = new FormData();
-  formData.append('file', file);
-  
-  uploadStatus.textContent = 'Uploading...';
+  uploadStatus.textContent = 'Calculating file hash...';
   
   try {
+    // Calculate file hash
+    const fileHash = await calculateFileHash(file);
+    
+    // Check if file already exists
+    uploadStatus.textContent = 'Checking for duplicates...';
+    const duplicateCheck = await checkDuplicateFile(fileHash);
+    
+    if (duplicateCheck.exists) {
+      const docName = duplicateCheck.document.name;
+      uploadStatus.innerHTML = `<div class="error">
+        This file already exists as "${docName}".<br>
+        Duplicate files are not allowed.
+      </div>`;
+      return;
+    }
+    
+    // File is unique, proceed with upload
+    uploadStatus.textContent = 'Uploading...';
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('hash', fileHash);
+    
     const response = await fetch('/api/documents', {
       method: 'POST',
       body: formData
@@ -94,6 +117,16 @@ async function uploadDocument(e) {
     
     if (!response.ok) {
       const errorData = await response.json();
+      
+      // Special handling for duplicates detected server-side
+      if (response.status === 409 && errorData.document) {
+        uploadStatus.innerHTML = `<div class="error">
+          This file already exists as "${errorData.document.name}".<br>
+          Duplicate files are not allowed.
+        </div>`;
+        return;
+      }
+      
       throw new Error(errorData.error || 'Upload failed');
     }
     
@@ -242,6 +275,45 @@ function addMessage(role, content, sourceChunks = null) {
   chatContainer.scrollTop = chatContainer.scrollHeight;
   
   return messageElement;
+}
+
+// Calculate SHA-256 hash of a file
+async function calculateFileHash(file) {
+  // Check if hash is already calculated
+  if (fileHashCache.has(file.name + file.size + file.lastModified)) {
+    return fileHashCache.get(file.name + file.size + file.lastModified);
+  }
+  
+  try {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    // Cache the hash
+    fileHashCache.set(file.name + file.size + file.lastModified, hashHex);
+    
+    return hashHex;
+  } catch (error) {
+    console.error('Error calculating file hash:', error);
+    throw error;
+  }
+}
+
+// Check if file with same hash already exists
+async function checkDuplicateFile(hash) {
+  try {
+    const response = await fetch(`/api/documents/check/${hash}`);
+    if (!response.ok) {
+      throw new Error('Failed to check file hash');
+    }
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error('Error checking duplicate file:', error);
+    throw error;
+  }
 }
 
 // Helper function to format bytes

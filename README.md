@@ -5,6 +5,8 @@ DocuChat is a document chat application that allows you to have conversations wi
 ## Features
 
 -   Upload and process text documents (.txt, .pdf, etc.)
+-   Prevent duplicate file uploads using file hash comparison (SHA-256)
+-   Client-side file hash calculation before upload for fast duplicate detection
 -   Generate embeddings for document chunks
 -   Flexible database options: Use a local SQLite database for quick development or a serverless Turso database for scalable, production-ready vector storage with `better-sqlite3` and `sqlite-vss`.
 -   Query documents using natural language
