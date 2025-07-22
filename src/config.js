@@ -32,6 +32,8 @@ export const RAG_MODEL = process.env.RAG_MODEL || 'text-embedding-3-small';
 export const RAG_API_KEY = process.env.RAG_API_KEY || process.env.OPENAI_API_KEY;
 
 // Embedding configuration
+// CRITICAL: If the embedding API is offline, this value MUST be set to initialize the database
+// If not set and the API is unreachable, the server will not start
 export const EMBEDDING_DIMENSIONS = process.env.EMBEDDING_DIMENSIONS;
 export let CHUNK_SIZE = process.env.CHUNK_SIZE
   ? parseInt(process.env.CHUNK_SIZE)

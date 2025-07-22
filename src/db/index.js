@@ -60,18 +60,12 @@ export async function initializeDatabase() {
       dimensions = parseInt(EMBEDDING_DIMENSIONS);
       console.log(`[DB] Using configured embedding dimension: ${dimensions}`);
     } else {
-      try {
-        console.log('[DB] Detecting embedding dimension from model...');
-        const testEmbedding = await generateEmbedding('test');
-        dimensions = testEmbedding.length;
-        console.log(`[DB] Detected embedding dimension: ${dimensions}`);
-      } catch (e) {
-        console.error(
-          '[DB] Failed to detect embedding dimension from model. Please set EMBEDDING_DIMENSIONS environment variable.',
-          e
-        );
-        throw new Error('Could not determine embedding dimension.');
-      }
+      // At this point, we've already checked the API availability,
+      // so we can safely attempt to get the dimensions
+      console.log('[DB] Getting embedding dimension from model...');
+      const testEmbedding = await generateEmbedding('test');
+      dimensions = testEmbedding.length;
+      console.log(`[DB] Using embedding dimension from model: ${dimensions}`);
     }
 
     // Set chunking parameters based on dimensions if not explicitly configured

@@ -86,6 +86,14 @@ RAG_API_KEY="your-openai-api-key"
 # RAG_API_KEY="ollama" # Any value works here
 # EMBEDDING_DIMENSIONS=1024 # Required for local models to set correct chunking defaults and vector dimensions in DB
 
+# CRITICAL: If your embedding API server (OpenAI or Ollama) is offline, you MUST set this value
+# or the server will not start. Common values:
+# - OpenAI text-embedding-3-small: 1536
+# - OpenAI text-embedding-3-large: 3072
+# - Ollama mxbai-embed-large: 1024
+# - Ollama nomic-embed-text: 768
+# EMBEDDING_DIMENSIONS=1536
+
 # Document Processing Configuration
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=200

@@ -16,6 +16,38 @@ async function createEmbedding(model, input) {
 }
 
 /**
+ * Check if the embedding API is available
+ * @returns {Promise<boolean>} - True if the API is available, false otherwise
+ */
+export async function checkEmbeddingApiAvailability() {
+  const model = RAG_MODEL;
+  try {
+    console.log(`Checking embedding API availability with model: ${model} from ${RAG_BASE_URL}`);
+    const data = await createEmbedding(model, 'test');
+    
+    const embedding = data.data[0].embedding;
+    if (!embedding || embedding.length === 0) {
+      console.error('API returned empty embedding data');
+      return false;
+    }
+
+    console.log(`Successfully connected to embedding API. Model dimensions: ${embedding.length}`);
+    return true;
+  } catch (error) {
+    // Only log a simplified error message
+    if (error.cause?.code === 'ECONNREFUSED' || 
+        error.message?.includes('Connection error') || 
+        error.cause?.code === 'ENOTFOUND' || 
+        error.cause?.code === 'ETIMEDOUT') {
+      console.error(`Error connecting to embedding API at ${RAG_BASE_URL}`);
+    } else {
+      console.error(`Error checking embedding API: ${error.message}`);
+    }
+    return false;
+  }
+}
+
+/**
  * Generate embeddings for text content using a direct fetch call.
  * @param {string} text - The text to generate embeddings for
  * @returns {Promise<number[]>} - The embedding vector
@@ -40,7 +72,26 @@ export async function generateEmbedding(text) {
     console.log(`Successfully generated embedding with dimensions: ${embedding.length}`);
     return embedding;
   } catch (error) {
-    console.error(`Error generating embedding with model ${model}:`, error);
+    // Only log the error message without the full stack trace
+    if (error.cause?.code === 'ECONNREFUSED' || 
+        error.message?.includes('Connection error') || 
+        error.cause?.code === 'ENOTFOUND' || 
+        error.cause?.code === 'ETIMEDOUT') {
+      console.error(`Error connecting to embedding API at ${RAG_BASE_URL}`);
+    } else {
+      console.error(`Error generating embedding with model ${model}: ${error.message}`);
+    }
+    
+    // Check for connection-related errors
+    if (
+      error.message?.includes('Connection error') ||
+      error.cause?.code === 'ECONNREFUSED' ||
+      error.cause?.code === 'ENOTFOUND' ||
+      error.cause?.code === 'ETIMEDOUT'
+    ) {
+      throw new Error(`Failed to connect to embedding API server at ${RAG_BASE_URL}. Set EMBEDDING_DIMENSIONS in your .env file to start the server when the API is unavailable.`);
+    }
+    
     throw new Error(`Failed to generate embedding: ${error.message}`);
   }
 }
@@ -84,4 +135,5 @@ export async function generateEmbeddingsBatch(texts, batchSize = 20) {
 export default {
   generateEmbedding,
   generateEmbeddingsBatch,
+  checkEmbeddingApiAvailability,
 }; 
