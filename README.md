@@ -80,6 +80,10 @@ RAG_BASE_URL="https://api.openai.com/v1"
 RAG_MODEL="text-embedding-3-small"
 RAG_API_KEY="your-openai-api-key"
 
+# Embedding Rate Limit Handling
+EMBEDDING_MAX_RETRIES=5 # Maximum number of retries for rate-limited embedding requests
+EMBEDDING_RETRY_DELAY=10000 # Delay in milliseconds (10 seconds) between retries
+
 # For Ollama (recommended for local development):
 # RAG_BASE_URL="http://127.0.0.1:11434/v1"
 # RAG_MODEL="mxbai-embed-large:latest"

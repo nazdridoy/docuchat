@@ -31,6 +31,14 @@ export const RAG_BASE_URL = process.env.RAG_BASE_URL || 'https://api.openai.com/
 export const RAG_MODEL = process.env.RAG_MODEL || 'text-embedding-3-small';
 export const RAG_API_KEY = process.env.RAG_API_KEY || process.env.OPENAI_API_KEY;
 
+// Embedding rate limit handling configuration
+export const EMBEDDING_MAX_RETRIES = process.env.EMBEDDING_MAX_RETRIES 
+  ? parseInt(process.env.EMBEDDING_MAX_RETRIES) 
+  : 5;
+export const EMBEDDING_RETRY_DELAY = process.env.EMBEDDING_RETRY_DELAY 
+  ? parseInt(process.env.EMBEDDING_RETRY_DELAY) 
+  : 10000; // 10 seconds in milliseconds
+
 // Embedding configuration
 // CRITICAL: If the embedding API is offline, this value MUST be set to initialize the database
 // If not set and the API is unreachable, the server will not start
